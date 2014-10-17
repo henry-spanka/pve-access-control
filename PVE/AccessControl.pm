@@ -507,6 +507,7 @@ my $privgroups = {
 	],
 	user => [
 	    'VM.Config.CDROM', # change CDROM media
+		'VM.Config.UploadISO', # upload own ISOs
 	    'VM.Console', 
 	    'VM.Backup',
 	    'VM.PowerMgmt',
