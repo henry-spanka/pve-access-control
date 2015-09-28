@@ -1,3 +1,9 @@
+libpve-access-control (3.0-19) unstable; urgency=low
+
+  * fix duo authentication
+
+ -- Henry Spanka - myVirtualserver <henry@myvirtualserver.de>  Mon, 28 Sep 2015 19:28:08 +0200
+
 libpve-access-control (3.0-18) unstable; urgency=low
 
   * Allow root user to be disabled
