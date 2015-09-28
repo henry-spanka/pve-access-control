@@ -356,7 +356,7 @@ sub check_user_enabled {
 
     return 1 if $data->{enable};
 
-    return 1 if $username eq 'root@pam'; # root is always enabled
+    #return 1 if $username eq 'root@pam'; # root is always enabled
 
     die "user '$username' is disabled\n" if !$noerr;
  
@@ -699,7 +699,7 @@ sub userconfig_force_defaults {
     # fixme: remove 'root' group (not required)?
 
     # add root user 
-    $cfg->{users}->{'root@pam'}->{enable} = 1;
+    #$cfg->{users}->{'root@pam'}->{enable} = 1;
 }
 
 sub parse_user_config {
