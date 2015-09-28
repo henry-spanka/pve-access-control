@@ -300,7 +300,13 @@ __PACKAGE__->register_method ({
     eval {
         # test if user exists and is enabled
         $rpcenv->check_user_enabled($username);
-        PVE::AccessControl::authenticate_user($username, $param->{password}, $param->{otp});
+
+        if ($param->{path} && $param->{privs}) {
+            $res = &$verify_auth($rpcenv, $username, $param->{password}, $param->{otp},
+                     $param->{path}, $param->{privs});
+        } else {
+            $res = &$create_ticket($rpcenv, $username, $param->{password}, $param->{otp});
+        }
     };
     if (my $err = $@) {
         my $clientip = $rpcenv->get_client_ip() || '';
@@ -309,7 +315,16 @@ __PACKAGE__->register_method ({
         die PVE::Exception->new("authentication failure\n", code => 401);
     }
 
-    if($usercfg->{users}->{$username}->{duosecurity}) {
+    my $ticketinvalid = 1;
+
+    eval {
+        PVE::AccessControl::verify_ticket($param->{password});
+    };
+    if (!$@) {
+        $ticketinvalid = 0;
+    }
+
+    if($usercfg->{users}->{$username}->{duosecurity} && $ticketinvalid eq 1) {
 
         my $duousername = $usercfg->{users}->{$username}->{duosecurity_username} || $username;
 
@@ -374,23 +389,6 @@ __PACKAGE__->register_method ({
             return $duoresponse;
         }
     }
-
-
-	eval {
-
-	    if ($param->{path} && $param->{privs}) {
-		$res = &$verify_auth($rpcenv, $username, $param->{password}, $param->{otp},
-				     $param->{path}, $param->{privs});
-	    } else {
-		$res = &$create_ticket($rpcenv, $username, $param->{password}, $param->{otp});
-	    }
-	};
-	if (my $err = $@) {
-	    my $clientip = $rpcenv->get_client_ip() || '';
-	    syslog('err', "authentication failure; rhost=$clientip user=$username msg=$err");
-	    # do not return any info to prevent user enumeration attacks
-	    die PVE::Exception->new("authentication failure\n", code => 401);
-	}
 
 	$res->{cap} = &$compute_api_permission($rpcenv, $username);
 
