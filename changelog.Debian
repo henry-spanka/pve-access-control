@@ -1,3 +1,9 @@
+libpve-access-control (3.0-18) unstable; urgency=low
+
+  * Allow root user to be disabled
+
+ -- Henry Spanka - myVirtualserver <henry@myvirtualserver.de>  Mon, 28 Sep 2015 17:35:21 +0200
+
 libpve-access-control (3.0-17) unstable; urgency=low
 
   * implement two-factor authentication via DuoSecurity
