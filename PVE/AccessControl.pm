@@ -725,7 +725,7 @@ sub parse_user_config {
 	my $et = shift @data;
 
 	if ($et eq 'user') {
-	    my ($user, $enable, $expire, $firstname, $lastname, $email, $comment, $keys) = @data;
+	    my ($user, $enable, $expire, $firstname, $lastname, $email, $comment, $keys, $duosecurity, $duosecurity_username) = @data;
 
 	    my (undef, undef, $realm) = PVE::Auth::Plugin::verify_username($user, 1);
 	    if (!$realm) {
@@ -734,6 +734,7 @@ sub parse_user_config {
 	    }
 
 	    $enable = $enable ? 1 : 0;
+        $duosecurity = $duosecurity ? 1 : 0;
 
 	    $expire = 0 if !$expire;
 
@@ -750,6 +751,7 @@ sub parse_user_config {
 
 	    $cfg->{users}->{$user} = {
 		enable => $enable,
+        duosecurity => $duosecurity,
 		# group => $group,
 	    };
 	    $cfg->{users}->{$user}->{firstname} = PVE::Tools::decode_text($firstname) if $firstname;
@@ -758,7 +760,8 @@ sub parse_user_config {
 	    $cfg->{users}->{$user}->{comment} = PVE::Tools::decode_text($comment) if $comment;
 	    $cfg->{users}->{$user}->{expire} = $expire;
 	    # keys: allowed yubico key ids or oath secrets (base32 encoded)
-	    $cfg->{users}->{$user}->{keys} = $keys if $keys; 
+	    $cfg->{users}->{$user}->{keys} = $keys if $keys;
+        $cfg->{users}->{$user}->{duosecurity_username} = $duosecurity_username if $duosecurity_username;
 
 	    #$cfg->{users}->{$user}->{groups}->{$group} = 1;
 	    #$cfg->{groups}->{$group}->{$user} = 1;
@@ -905,7 +908,9 @@ sub write_user_config {
 	my $expire = int($d->{expire} || 0);
 	my $enable = $d->{enable} ? 1 : 0;
 	my $keys = $d->{keys} ? $d->{keys} : '';
-	$data .= "user:$user:$enable:$expire:$firstname:$lastname:$email:$comment:$keys:\n";
+    my $duosecurity = $d->{duosecurity} ? 1 : 0;
+    my $duosecurity_username = $d->{duosecurity_username} || '';
+	$data .= "user:$user:$enable:$expire:$firstname:$lastname:$email:$comment:$keys:$duosecurity:$duosecurity_username:\n";
     }
 
     $data .= "\n";

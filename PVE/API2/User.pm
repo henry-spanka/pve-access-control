@@ -21,7 +21,7 @@ my $extract_user_data = sub {
 
     my $res = {};
 
-    foreach my $prop (qw(enable expire firstname lastname email comment keys)) {
+    foreach my $prop (qw(enable expire firstname lastname email comment keys duosecurity duosecurity_username)) {
 	$res->{$prop} = $data->{$prop} if defined($data->{$prop});
     }
 
@@ -129,6 +129,16 @@ __PACKAGE__->register_method ({
 		type => 'string', 
 		optional => 1,
 	    },
+        duosecurity => {
+            type => 'boolean',
+            description => 'Enable/disable DuoSecurity',
+            optional => 1,
+        },
+        duosecurity_username => {
+            type => 'string',
+            description => 'Duosecurity alternative username',
+            optional => 1,
+        },
 	    expire => { 
 		description => "Account expiration date (seconds since epoch). '0' means no expiration date.",
 		type => 'integer', 
@@ -179,6 +189,8 @@ __PACKAGE__->register_method ({
 		$usercfg->{users}->{$username}->{email} = $param->{email} if $param->{email};
 		$usercfg->{users}->{$username}->{comment} = $param->{comment} if $param->{comment};
 		$usercfg->{users}->{$username}->{keys} = $param->{keys} if $param->{keys};
+        $usercfg->{users}->{$username}->{duosecurity} = $param->{duosecurity} if $param->{duosecurity};
+        $usercfg->{users}->{$username}->{duosecurity_username} = $param->{duosecurity_username} if $param->{duosecurity_username};
 
 		cfs_write_file("user.cfg", $usercfg);
 	    }, "create user failed");
@@ -209,7 +221,9 @@ __PACKAGE__->register_method ({
 	    lastname => { type => 'string', optional => 1 },
 	    email => { type => 'string', optional => 1 },
 	    comment => { type => 'string', optional => 1 },    
-	    keys => { type => 'string', optional => 1 },    
+	    keys => { type => 'string', optional => 1 },
+        duosecurity => { type => 'boolean', optional => 1 },
+        duosecurity_username => { type => 'string', optional => 1 },
 	    groups => { type => 'array' },
 	}
     },
@@ -259,6 +273,16 @@ __PACKAGE__->register_method ({
 		type => 'string', 
 		optional => 1,
 	    },
+        duosecurity => {
+            type => 'boolean',
+            description => 'Enable/disable DuoSecurity',
+            optional => 1,
+        },
+        duosecurity_username => {
+            type => 'string',
+            description => 'Duo Security alternative username',
+            optional => 1,
+        },
 	    expire => { 
 		description => "Account expiration date (seconds since epoch). '0' means no expiration date.",
 		type => 'integer', 
@@ -303,6 +327,8 @@ __PACKAGE__->register_method ({
 		$usercfg->{users}->{$username}->{email} = $param->{email} if defined($param->{email});
 		$usercfg->{users}->{$username}->{comment} = $param->{comment} if defined($param->{comment});
 		$usercfg->{users}->{$username}->{keys} = $param->{keys} if defined($param->{keys});
+        $usercfg->{users}->{$username}->{duosecurity} = $param->{duosecurity} if defined($param->{duosecurity});
+        $usercfg->{users}->{$username}->{duosecurity_username} = $param->{duosecurity_username} if defined($param->{duosecurity_username});
 
 		cfs_write_file("user.cfg", $usercfg);
 	    }, "update user failed");

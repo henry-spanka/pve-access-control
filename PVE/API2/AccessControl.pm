@@ -15,6 +15,9 @@ use PVE::API2::User;
 use PVE::API2::Group;
 use PVE::API2::Role;
 use PVE::API2::ACL;
+use PVE::DuoSecurity;
+use URI::Escape;
+use PVE::INotify;
 
 use base qw(PVE::RESTHandler);
 
@@ -262,6 +265,16 @@ __PACKAGE__->register_method ({
 		optional => 1,
 		maxLength => 64,
 	    },
+        duoauthmethod => {
+            description => "Duo Auth method. Device ID and method need to be seperated with an underscore.",
+            type => 'string',
+            optional => 1
+        },
+        duo_passcode => {
+            description => "Duo pass code. Authmethod needs to be passcode",
+            type => 'integer',
+            optional => 1
+        }
 	}
     },
     returns => {
@@ -281,9 +294,89 @@ __PACKAGE__->register_method ({
 	my $rpcenv = PVE::RPCEnvironment::get();
 
 	my $res;
+
+    my $usercfg = cfs_read_file("user.cfg");
+
+    eval {
+        # test if user exists and is enabled
+        $rpcenv->check_user_enabled($username);
+        PVE::AccessControl::authenticate_user($username, $param->{password}, $param->{otp});
+    };
+    if (my $err = $@) {
+        my $clientip = $rpcenv->get_client_ip() || '';
+        syslog('err', "authentication failure; rhost=$clientip user=$username msg=$err");
+        # do not return any info to prevent user enumeration attacks
+        die PVE::Exception->new("authentication failure\n", code => 401);
+    }
+
+    if($usercfg->{users}->{$username}->{duosecurity}) {
+
+        my $duousername = $usercfg->{users}->{$username}->{duosecurity_username} || $username;
+
+        my $duo_options = PVE::Cluster::cfs_read_file('duosecurity.cfg');
+
+        my $duoapi = new PVE::DuoSecurity($duo_options->{integration_key},
+                $duo_options->{secret_key},
+                $duo_options->{hostname}
+        );
+
+        $duoapi->json_api_call('GET', '/auth/v2/check', {});
+
+        my $duoresult;
+
+        if($param->{duoauthmethod}) {
+            if($param->{duoauthmethod} eq 'passcode' && $param->{duo_passcode}) {
+                $duoresult = $duoapi->json_api_call('POST', '/auth/v2/auth', {
+                    ipaddr => $rpcenv->get_client_ip() || '',
+                    username => $duousername,
+                    factor => 'passcode',
+                    passcode => $param->{duo_passcode}
+                });
+            } elsif($param->{duoauthmethod} =~ /^([a-zA-Z\d]+)_(push|phone|sms)$/s) {
+                if($2 eq 'push') {
+
+                    my $realusername = uri_escape($username);
+                    my $nodename = uri_escape(`hostname -f` || PVE::INotify::nodename());
+
+                    $duoresult = $duoapi->json_api_call('POST', '/auth/v2/auth', {
+                        ipaddr => $rpcenv->get_client_ip() || '',
+                        username => $duousername,
+                        factor => $2,
+                        device => $1,
+                        pushinfo => "Real%20Username=${realusername}&Node%20Name=${nodename}"
+                    });
+                } else {
+                    $duoresult = $duoapi->json_api_call('POST', '/auth/v2/auth', {
+                        ipaddr => $rpcenv->get_client_ip() || '',
+                        username => $duousername,
+                        factor => $2,
+                        device => $1
+                    });
+                }
+            } else {
+                die PVE::Exception->new("Duo Authentication failure\n", code => 401);
+            }
+
+            if($duoresult->{result} ne 'allow') {
+                die PVE::Exception->new("Duo Authentication failure: $duoresult->{status_msg}\n", code => 401);
+            }
+
+        } else {
+
+            my $duoresponse = $duoapi->json_api_call('POST', '/auth/v2/preauth', {
+                ipaddr => $rpcenv->get_client_ip() || '',
+                username => $duousername
+                }
+            );
+
+            $duoresponse->{username} = $username;
+            $duoresponse->{duosecurity} = 1;
+            return $duoresponse;
+        }
+    }
+
+
 	eval {
-	    # test if user exists and is enabled
-	    $rpcenv->check_user_enabled($username);
 
 	    if ($param->{path} && $param->{privs}) {
 		$res = &$verify_auth($rpcenv, $username, $param->{password}, $param->{otp},
